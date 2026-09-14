@@ -1,0 +1,3 @@
+{
+  snell = ./snell.nix;
+}
