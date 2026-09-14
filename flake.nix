@@ -53,6 +53,67 @@
             machine.wait_for_open_port(6160)
           '';
         };
+
+        # IP 模式：derper 需要自签带 IP SAN 的证书，并在非 443 端口上提供 HTTPS。
+        derper-module = (pkgsFor "x86_64-linux").testers.runNixOSTest {
+          name = "derper";
+          nodes.machine =
+            { pkgs, ... }:
+            {
+              imports = [ self.nixosModules.derper ];
+              environment.systemPackages = [ pkgs.curl ];
+              services.derper = {
+                enable = true;
+                hostname = "127.0.0.1";
+                certMode = "manual";
+                address = ":12345";
+                httpPort = -1;
+              };
+            };
+          testScript = ''
+            machine.wait_for_unit("derper.service")
+            machine.wait_for_open_port(12345)
+            machine.succeed("curl -sk https://127.0.0.1:12345/ | grep '<h1>DERP</h1>'")
+            machine.succeed("test -s /var/lib/private/derper/certs/127.0.0.1.crt")
+            machine.succeed("ss -lun | grep -q ':3478 '")
+          '';
+        };
+
+        # 域名模式：证书来自外部文件（实际部署时是 ACME），客户端按域名严格校验证书。
+        derper-external-cert =
+          let
+            pkgs = pkgsFor "x86_64-linux";
+            cert = pkgs.runCommand "derper-test-cert" { nativeBuildInputs = [ pkgs.openssl ]; } ''
+              mkdir $out
+              openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 3650 \
+                -subj /CN=derp.test -addext subjectAltName=DNS:derp.test \
+                -keyout $out/key.pem -out $out/cert.pem
+            '';
+          in
+          pkgs.testers.runNixOSTest {
+            name = "derper-external-cert";
+            nodes.machine =
+              { pkgs, ... }:
+              {
+                imports = [ self.nixosModules.derper ];
+                environment.systemPackages = [ pkgs.curl ];
+                services.derper = {
+                  enable = true;
+                  hostname = "derp.test";
+                  address = ":12345";
+                  httpPort = -1;
+                  tlsCertFile = "${cert}/cert.pem";
+                  tlsKeyFile = "${cert}/key.pem";
+                };
+              };
+            testScript = ''
+              machine.wait_for_unit("derper.service")
+              machine.wait_for_open_port(12345)
+              machine.succeed(
+                "curl -sf --cacert ${cert}/cert.pem --resolve derp.test:12345:127.0.0.1 https://derp.test:12345/ | grep '<h1>DERP</h1>'"
+              )
+            '';
+          };
       };
     };
 }
