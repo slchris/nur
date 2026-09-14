@@ -32,5 +32,27 @@
       overlays.default = import ./overlay.nix;
 
       nixosModules = import ./nixos-modules;
+
+      checks.x86_64-linux = {
+        inherit (self.packages.x86_64-linux) snell-server;
+
+        # 在虚拟机里真正启动服务：只构建包发现不了运行期问题，例如 UPX 壳导致的 127 退出。
+        snell-module = (pkgsFor "x86_64-linux").testers.runNixOSTest {
+          name = "snell";
+          nodes.machine = {
+            imports = [ self.nixosModules.snell ];
+            environment.etc."snell-psk".text = "ci-test-only-psk";
+            services.snell = {
+              enable = true;
+              port = 6160;
+              pskFile = "/etc/snell-psk";
+            };
+          };
+          testScript = ''
+            machine.wait_for_unit("snell.service")
+            machine.wait_for_open_port(6160)
+          '';
+        };
+      };
     };
 }

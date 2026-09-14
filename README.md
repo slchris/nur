@@ -65,6 +65,17 @@ nix build .#snell-server
 
 通过本仓库的 flake 构建时已允许 `snell-server` 这个 unfree 包；经 overlay 使用时，要由使用方自己允许。新增版本时，用 `nix store prefetch-file` 取得官方 zip 的哈希，填进 `pkgs/snell-server/default.nix`。
 
-## CI 与 NUR 注册
+## CI
 
-`.github/workflows/build.yml` 和 `ci.nix` 来自模板。CI 只评估 unfree 包，不构建。仓库尚未登记到 NUR；登记后，把 workflow 里的 `nurRepo` 改成登记名。
+`.github/workflows/build.yml` 包含两组任务：
+
+- `flake check`：执行 `nix flake check`，构建 `snell-server`，并运行 `checks.x86_64-linux.snell-module`。这个 NixOS 虚拟机测试会真正启动 snell 服务，确认端口已经监听。
+- `NUR eval`：按 NUR 收录时的方式，分别在 `nixos-26.05`、`nixos-unstable`、`nixpkgs-unstable` 上求值。
+
+本地执行虚拟机测试需要 x86_64-linux 与 KVM：
+
+```sh
+nix build .#checks.x86_64-linux.snell-module -L
+```
+
+仓库尚未登记到 NUR。登记后，在 workflow 末尾加一步 `curl -XPOST "https://nur-update.nix-community.org/update?repo=<登记名>"`，通知 NUR 拉取更新。
