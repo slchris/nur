@@ -13,6 +13,7 @@
       unfreeNames = [
         "claude-desktop"
         "snell-server"
+        "zcode"
       ];
 
       pkgsFor =

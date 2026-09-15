@@ -11,4 +11,5 @@
 
   claude-desktop = pkgs.callPackage ./pkgs/claude-desktop { };
   snell-server = pkgs.callPackage ./pkgs/snell-server { };
+  zcode = pkgs.callPackage ./pkgs/zcode { };
 }
