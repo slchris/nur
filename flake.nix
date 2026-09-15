@@ -38,7 +38,8 @@
       nixosModules = import ./nixos-modules;
 
       checks.x86_64-linux = {
-        inherit (self.packages.x86_64-linux) snell-server;
+        # 二进制重新打包的包：构建时 autoPatchelfHook 会检查所有依赖库都能找到。
+        inherit (self.packages.x86_64-linux) claude-desktop snell-server zcode;
 
         # 在虚拟机里真正启动服务：只构建包发现不了运行期问题，例如 UPX 壳导致的 127 退出。
         snell-module = (pkgsFor "x86_64-linux").testers.runNixOSTest {

@@ -8,7 +8,7 @@
   version ? "5.0.1",
 }:
 let
-  # 官方 zip 的哈希。新增版本时用 nix store prefetch-file 取得。
+  # 官方 zip 的哈希，由 scripts/update.py 维护。
   hashes = {
     "5.0.1" = "sha256-m+ocK541tzsxY0hWwE0Yw5MHK55dzeajJ4HYuPkIxTk=";
     "4.1.1" = "sha256-zCJxt5x1BoiLNOZR6HQbOqf8fV9gqmXvi7CW8zE6GTs=";

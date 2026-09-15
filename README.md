@@ -84,4 +84,16 @@ nix build .#checks.x86_64-linux.snell-module -L
 
 虚拟机测试需要 x86_64-linux 和 KVM。CI 会执行 `nix flake check`，其中包括 snell 和 derper 的虚拟机测试，并在 nixos-26.05、nixos-unstable、nixpkgs-unstable 上按 NUR 的方式求值。
 
+## 自动更新
+
+`.github/workflows/update.yml` 每天执行 `scripts/update.py`，检查上游新版本：
+
+- `claude-desktop`：Anthropic apt 仓库的软件包索引
+- `zcode`：ZCode 下载页上的 AppImage 地址
+- `snell-server`：Surge 知识库的 snell 发布说明，只收正式版
+
+有新版本时改写包文件，`nix flake check` 通过后直接提交到 main。snell 的默认版本只在同一主版本内升级，新主版本只加入哈希表。本机也可以执行 `python3 scripts/update.py [包名…]`。
+
+使用方的 flake 锁定了本仓库的版本，自动更新不会直接影响已部署的机器，要在使用方执行 `nix flake update nur-slchris` 才会用上新版本。
+
 仓库还没有登记到 NUR。

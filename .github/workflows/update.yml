@@ -1,0 +1,57 @@
+name: Update packages
+
+on:
+  schedule:
+    # 每天检查一次上游新版本
+    - cron: "41 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-packages
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            system-features = nixos-test benchmark big-parallel kvm
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      # 某个上游检查失败时，其余包的更新仍然提交，任务最后标记为失败。
+      - name: Check upstream versions
+        id: update
+        continue-on-error: true
+        run: python3 scripts/update.py
+
+      # 新版本要构建通过、虚拟机测试通过才提交。用 GITHUB_TOKEN 推送不会再触发 CI，所以检查在这里做完。
+      - name: Build and test
+        if: steps.update.outputs.changed != ''
+        run: nix flake check -L
+
+      - name: Commit
+        if: steps.update.outputs.changed != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -a -F .git/UPDATE_MSG
+          git push
+
+      - name: Report failed upstream checks
+        if: steps.update.outcome == 'failure'
+        run: |
+          echo "有上游版本检查失败，见 Check upstream versions 步骤的输出" >&2
+          exit 1
