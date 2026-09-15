@@ -10,7 +10,10 @@
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
 
       # 本仓库里的 unfree 包。通过本 flake 直接构建时默认允许，经 overlay 使用时由使用方自行允许。
-      unfreeNames = [ "snell-server" ];
+      unfreeNames = [
+        "claude-desktop"
+        "snell-server"
+      ];
 
       pkgsFor =
         system:

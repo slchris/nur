@@ -9,5 +9,6 @@
   nixosModules = import ./nixos-modules;
   overlays = import ./overlays;
 
+  claude-desktop = pkgs.callPackage ./pkgs/claude-desktop { };
   snell-server = pkgs.callPackage ./pkgs/snell-server { };
 }

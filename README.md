@@ -2,6 +2,7 @@
 
 个人的 [NUR](https://github.com/nix-community/NUR) 仓库，放 nixpkgs 里没有的包和 NixOS 模块。
 
+- `claude-desktop`：Anthropic 官方 Claude 桌面程序，由官方 deb 重新打包。Cowork 按 Debian 路径查找 QEMU 固件，在 NixOS 上用不了。
 - `snell-server`：Surge 的 snell 服务端，默认 5.0.1，也有 4.1.1。unfree，只支持 x86_64-linux。
 - `nixosModules.snell`：运行 snell-server。
 - `nixosModules.derper`：Tailscale/headscale 的 DERP 中继。
