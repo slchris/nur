@@ -10,6 +10,8 @@
   overlays = import ./overlays;
 
   claude-desktop = pkgs.callPackage ./pkgs/claude-desktop { };
+  openclaw = pkgs.callPackage ./pkgs/openclaw { };
+  pi = pkgs.callPackage ./pkgs/pi { };
   snell-server = pkgs.callPackage ./pkgs/snell-server { };
   zcode = pkgs.callPackage ./pkgs/zcode { };
 }
