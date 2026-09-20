@@ -72,28 +72,6 @@ def update_claude_desktop() -> str | None:
     return f"claude-desktop {current} -> {latest}"
 
 
-def update_zcode() -> str | None:
-    path = ROOT / "pkgs/zcode/default.nix"
-    text = path.read_text()
-    current = re.search(r'version = "([0-9.]+)";', text).group(1)
-
-    # 官方没有公开的更新清单，下载页里写的就是当前版本的 AppImage 地址。
-    page = get("https://zcode.z.ai/en/docs/install").decode("utf-8", "replace")
-    versions = set(re.findall(r"releases/([0-9]+\.[0-9]+\.[0-9]+)/linux-x64/ZCode-\1-linux-x64\.AppImage", page))
-    if not versions:
-        raise RuntimeError("下载页里找不到 Linux AppImage 的地址，页面结构可能变了")
-    latest = max(versions, key=vkey)
-    if vkey(latest) <= vkey(current):
-        return None
-
-    url = f"https://cdn-zcode.z.ai/zcode/electron/releases/{latest}/linux-x64/ZCode-{latest}-linux-x64.AppImage"
-    old_hash = re.search(r'hash = "(sha256-[^"]+)";', text).group(1)
-    text = replace_once(text, f'version = "{current}";', f'version = "{latest}";')
-    text = replace_once(text, old_hash, sha256_sri_of_url(url))
-    path.write_text(text)
-    return f"zcode {current} -> {latest}"
-
-
 def update_snell_server() -> str | None:
     path = ROOT / "pkgs/snell-server/default.nix"
     text = path.read_text()
@@ -129,7 +107,6 @@ def main() -> int:
     updaters = {
         "claude-desktop": update_claude_desktop,
         "snell-server": update_snell_server,
-        "zcode": update_zcode,
     }
     only = set(sys.argv[1:])
     changes = {}

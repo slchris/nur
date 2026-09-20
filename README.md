@@ -3,7 +3,6 @@
 个人的 [NUR](https://github.com/nix-community/NUR) 仓库，放 nixpkgs 里没有的包和 NixOS 模块。
 
 - `claude-desktop`：Anthropic 官方 Claude 桌面程序，由官方 deb 重新打包。Cowork 按 Debian 路径查找 QEMU 固件，在 NixOS 上用不了。
-- `zcode`：Z.ai 的桌面编程智能体 ZCode，官方 AppImage 封装。
 - `snell-server`：Surge 的 snell 服务端，默认 5.0.1，也有 4.1.1。unfree，只支持 x86_64-linux。
 - `nixosModules.snell`：运行 snell-server。
 - `nixosModules.derper`：Tailscale/headscale 的 DERP 中继。
@@ -89,7 +88,6 @@ nix build .#checks.x86_64-linux.snell-module -L
 `.github/workflows/update.yml` 每天执行 `scripts/update.py`，检查上游新版本：
 
 - `claude-desktop`：Anthropic apt 仓库的软件包索引
-- `zcode`：ZCode 下载页上的 AppImage 地址
 - `snell-server`：Surge 知识库的 snell 发布说明，只收正式版
 
 有新版本时改写包文件，`nix flake check` 通过后直接提交到 main。snell 的默认版本只在同一主版本内升级，新主版本只加入哈希表。本机也可以执行 `python3 scripts/update.py [包名…]`。

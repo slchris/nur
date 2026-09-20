@@ -2,9 +2,11 @@
   description = "slchris 的 NUR 仓库";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  # openclaw 的打包脚本与 bundled acpx 复用官方 nix-openclaw（它自带 nixpkgs，不 follows）。
+  inputs.nix-openclaw.url = "github:openclaw/nix-openclaw";
 
   outputs =
-    { self, nixpkgs }:
+    { self, nixpkgs, nix-openclaw }:
     let
       inherit (nixpkgs) lib;
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
@@ -13,7 +15,6 @@
       unfreeNames = [
         "claude-desktop"
         "snell-server"
-        "zcode"
       ];
 
       pkgsFor =
@@ -24,7 +25,10 @@
         };
     in
     {
-      legacyPackages = forAllSystems (system: import ./default.nix { pkgs = pkgsFor system; });
+      legacyPackages = forAllSystems (system: import ./default.nix {
+        pkgs = pkgsFor system;
+        inherit nix-openclaw;
+      });
 
       packages = forAllSystems (
         system:
@@ -39,7 +43,7 @@
 
       checks.x86_64-linux = {
         # 二进制重新打包的包：构建时 autoPatchelfHook 会检查所有依赖库都能找到。
-        inherit (self.packages.x86_64-linux) claude-desktop snell-server zcode;
+        inherit (self.packages.x86_64-linux) claude-desktop snell-server;
 
         # 在虚拟机里真正启动服务：只构建包发现不了运行期问题，例如 UPX 壳导致的 127 退出。
         snell-module = (pkgsFor "x86_64-linux").testers.runNixOSTest {

@@ -1,57 +1,80 @@
-# openclaw 更新很快，nixpkgs 常年落后（nixpkgs 26.05 是 2026.5.7，unstable 是 2026.6.33，
-# 上游已到 2026.9.4）。这里不重写整份 derivation，而是复用 nixpkgs 的 openclaw，
-# 只覆盖 version、src 与 pnpmDepsHash，nixpkgs 那边改构建方式时能自动跟上。
+# openclaw 更新很快：nixpkgs 26.05 停在 2026.5.7（recipe 用 pnpm_10 / node 22），
+# 上游 2026.9.x 已经换到 pnpm 12 + node >=24，直接复用 nixpkgs 的 recipe 已经吃不下
+# （pnpmDeps 的 lockfile/patchedDependencies 对不上、新扩展的 optional 原生依赖也补不齐）。
 #
-# 两个 hash 都无法用标准库算（src 是 fetchFromGitHub 的 unpack 语义，
-# pnpmDepsHash 需要跑 pnpm），所以不能像 claude-desktop 那样接到 scripts/update.py。
-# 升级用 nix-update（见 README）。
+# 所以这里复刻 nix-openclaw 的 npm 打包路径：它把 openclaw 的 **npm 包**用 node 24 的
+# buildNpmPackage 装出来，再跑它自己的脚本把 runtime/扩展/bundled acpx 摆好。
+# 只把版本与 wrapper lock 换成 2026.9.5，其余构建脚本与 bundled acpx 都复用 nix-openclaw。
+#
+# wrapper lock 由 node 24 的 npm 从零生成：
+#   cd npm-wrapper && rm -rf node_modules package-lock.json \
+#     && npm install --package-lock-only --ignore-scripts --omit=dev --legacy-peer-deps
+# 生成后必须能通过 nix-openclaw 的 check-openclaw-npm-wrapper-lock.sh（离线可复现）。
 {
-  fetchFromGitHub,
-  openclaw,
+  lib,
+  nix-openclaw,
+  system,
 }:
 
 let
-  # 第一步只换版本。nixpkgs 那边 pnpmDeps 是用 finalAttrs 串的
-  # （hash = finalAttrs.pnpmDepsHash，src 也 inherit 自 finalAttrs），
-  # 所以这三项写在顶层就会传下去。
-  bumped = openclaw.overrideAttrs (
-    final: prev: {
-      version = "2026.9.4";
+  noPkgs = nix-openclaw.inputs.nixpkgs.legacyPackages.${system};
+  noPath = nix-openclaw.outPath;
 
-      src = fetchFromGitHub {
-        owner = "openclaw";
-        repo = "openclaw";
-        tag = "v${final.version}";
-        hash = "sha256-xeUf0Emyhen4hnxjhbTI59d02QfB3YWTxhlqNkKuiUA=";
-      };
+  # bundled acpx：用 nix-openclaw 生成的 lock + 它的打包脚本，hash 才与它的 nixpkgs 对得上。
+  runtimePluginLocks = import (noPath + "/nix/generated/openclaw-runtime-plugins");
+  bundledAcpx = noPkgs.callPackage (noPath + "/nix/lib/openclaw-runtime-plugin.nix") {
+    linkOpenClawPeer = false;
+  } runtimePluginLocks.acpx;
 
-      pnpmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  wrapperSrc = ./npm-wrapper;
+  lock = builtins.fromJSON (builtins.readFile "${wrapperSrc}/package-lock.json");
+  version = lock.packages."node_modules/openclaw".version;
 
-      meta = prev.meta // {
-        # nixpkgs 给 openclaw 打了 knownVulnerabilities（LLM 解析不可信内容是提示注入面）。
-        # 标记为 insecure 会让 Hydra 跳过构建（没有二进制缓存），消费方还得按版本号配
-        # permittedInsecurePackages，每次升级都要改。自选的本地工具、风险已知，这里去掉。
-        knownVulnerabilities = [ ];
-      };
-    }
-  );
+  buildNpmPackageForOpenClaw = noPkgs.buildNpmPackage.override {
+    nodejs = noPkgs.nodejs_24;
+  };
 in
-# 第二步再给 pnpmDeps 加抓取超时。必须分开写：overrideAttrs 里的 prev.pnpmDeps 是覆盖
-# *之前* 那一份，在上面那层拿到的还是旧版本的 src 和 hash。
-bumped.overrideAttrs (
-  _: prev: {
-    # 依赖里有一堆各平台的预编译二进制（node-llama-cpp 的 CUDA 版、各家的 win32/darwin
-    # binding），单个几十上百 MB。链路慢的时候 pnpm 默认 60 秒的抓取超时不够，构建会以
-    # "[23] The operation was aborted due to timeout" 结束。
-    #
-    # 开关只能用 pnpm_config_<设置名> 环境变量：nixpkgs 的 fetchPnpmDeps 是
-    # pushd "$HOME" 之后才跑 pnpm，写进源码目录的 .npmrc 读不到；这个 fetcher 自己也是
-    # 用这种变量设 side_effects_cache 的。NPM_CONFIG_* 是 npm 的前缀，pnpm 不认。
-    pnpmDeps = prev.pnpmDeps.overrideAttrs (_: {
-      pnpm_config_fetch_timeout = "1800000";
-      pnpm_config_fetch_retries = "5";
-      pnpm_config_fetch_retry_mintimeout = "20000";
-      pnpm_config_fetch_retry_maxtimeout = "600000";
-    });
-  }
-)
+buildNpmPackageForOpenClaw {
+  pname = "openclaw-gateway";
+  inherit version;
+
+  src = wrapperSrc;
+  npmDepsHash = "sha256-CJ7ZPapmz3+4vMaWyIi9jCrw2RUWnkdHOAzo9pXPp28=";
+
+  dontNpmBuild = true;
+  makeCacheWritable = true;
+
+  npmInstallFlags = [
+    "--omit=dev"
+    "--ignore-scripts"
+    "--legacy-peer-deps"
+  ];
+
+  nativeBuildInputs = [ noPkgs.makeWrapper ];
+
+  env = {
+    NODE_BIN = "${noPkgs.nodejs_24}/bin/node";
+    OPENCLAW_NPM_WRAPPER_DIR = baseNameOf (toString wrapperSrc);
+    OPENCLAW_RUNTIME_LAYOUT_SH = "${noPath}/nix/scripts/openclaw-stage-runtime.sh";
+    OPENCLAW_BUNDLED_ACPX = "${bundledAcpx}";
+    OPENCLAW_NPM_PACKAGE_ROOT = "node_modules/openclaw";
+    # 2026.9.5 的 dist 结构变了，nix-openclaw 那份补丁的 contract 对不上；用我们适配过的。
+    OPENCLAW_PATCH_NPM_DIST_SCRIPT = "${./patch-openclaw-npm-dist.mjs}";
+    STDENV_SETUP = "${noPkgs.stdenv}/setup";
+  };
+
+  postUnpack = "${noPath}/nix/scripts/check-openclaw-npm-wrapper-lock.sh";
+  installPhase = "${noPath}/nix/scripts/openclaw-gateway-npm-install.sh";
+
+  dontFixup = true;
+  dontStrip = true;
+  dontPatchShebangs = true;
+
+  meta = {
+    description = "Telegram-first AI gateway (OpenClaw)";
+    homepage = "https://github.com/openclaw/openclaw";
+    license = lib.licenses.mit;
+    platforms = lib.platforms.darwin ++ lib.platforms.linux;
+    mainProgram = "openclaw";
+  };
+}

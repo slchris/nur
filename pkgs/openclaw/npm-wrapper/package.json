@@ -1,0 +1,8 @@
+{
+  "name": "nur-openclaw-wrapper",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "openclaw": "2026.9.5"
+  }
+}
