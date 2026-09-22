@@ -17,7 +17,9 @@ in
 
   claude-desktop = pkgs.callPackage ./pkgs/claude-desktop { };
   dae = pkgs.callPackage ./pkgs/dae { };
+  deepseek-harness = pkgs.callPackage ./pkgs/deepseek-harness { };
   kixdns = pkgs.callPackage ./pkgs/kixdns { };
+  kixparadigm = pkgs.callPackage ./pkgs/kixparadigm { };
   pi = pkgs.callPackage ./pkgs/pi { };
   snell-server = pkgs.callPackage ./pkgs/snell-server { };
 }
