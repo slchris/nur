@@ -6,12 +6,19 @@
 # prebuilds/<platform>-<arch>），所以 npm 安装用 --ignore-scripts，不需要 node-gyp
 # 和网络。dsh 的入口用 import.meta.main（Node >= 24.2 才有），因此固定 nodejs_24。
 #
+# 另外打了 kixparadigm 的官方补丁（kix-compaction-cap-patch.mjs）：给
+# dsh-compaction-basic 加上 maxThresholdTokens / maxRetainTokens 两个绝对上限字段。
+# kix 的 agent-preset 用了这两个字段，不打补丁上游 schema 会以
+# BasicCompactionConfig: unknown key 拒绝挂载 preset。补丁是幂等的，锚点不匹配会
+# 报错（DSH 升级后构建失败即提醒我们跟进）。补丁 rev 与 nur 的 pkgs/kixparadigm 一致。
+#
 # npm-wrapper/package-lock.json 由 node 24 的 npm 生成：
 #   cd npm-wrapper && rm -rf node_modules package-lock.json \
 #     && npm install --package-lock-only --ignore-scripts --omit=dev
 {
   lib,
   buildNpmPackage,
+  fetchurl,
   makeWrapper,
   nodejs_24,
 }:
@@ -20,6 +27,13 @@ let
   wrapperSrc = ./npm-wrapper;
   lock = builtins.fromJSON (builtins.readFile "${wrapperSrc}/package-lock.json");
   version = lock.packages."node_modules/@deepseek-ai/dsh".version;
+
+  kixCapPatch = fetchurl {
+    url = "https://raw.githubusercontent.com/olicesx/kixparadigm/c3c31eb3268622358761cb2035ec84810a12ca11/scripts/context-budget/kix-compaction-cap-patch.mjs";
+    hash = "sha256-yVJge4vDWpAz/0cByoGp3wFaQADc/gaGb8u3yMqj0Bk=";
+  };
+
+  compactionPkg = "$out/lib/node_modules/dsh-npm-wrapper/node_modules/@deepseek-ai/dsh-compaction-basic";
 in
 (buildNpmPackage.override { nodejs = nodejs_24; }) {
   pname = "deepseek-harness";
@@ -44,6 +58,9 @@ in
     makeWrapper ${lib.getExe nodejs_24} $out/bin/dsh \
       --add-flags "--expose-internals" \
       --add-flags "$out/lib/node_modules/dsh-npm-wrapper/node_modules/@deepseek-ai/dsh/lib/bin.js"
+
+    DSH_COMPACTION_PKG=${compactionPkg} ${nodejs_24}/bin/node ${kixCapPatch}
+    DSH_COMPACTION_PKG=${compactionPkg} ${nodejs_24}/bin/node ${kixCapPatch} --check
   '';
 
   meta = {
