@@ -5,6 +5,7 @@
 - `claude-desktop`：Anthropic 官方 Claude 桌面程序，由官方 deb 重新打包。Cowork 按 Debian 路径查找 QEMU 固件，在 NixOS 上用不了。
 - `snell-server`：Surge 的 snell 服务端，默认 5.0.1，也有 4.1.1。unfree，只支持 x86_64-linux。
 - `stalwart_0_16` / `stalwart-cli_1`：Stalwart 0.16.23 与配套 CLI 1.0.12 的官方 x86_64 Linux musl 静态发布包，固定 SHA-256；邮箱 NixOS 配置直接使用这些包，避免 nixpkgs 0.15 服务模块的旧配置格式。
+- `sops_3_13`：SOPS 3.13.3 官方 x86_64 Linux 静态发布包，固定 SHA-256；邮件 VM 用它在运行时解密密文。
 - `nixosModules.snell`：运行 snell-server。
 - `nixosModules.derper`：Tailscale/headscale 的 DERP 中继。
 

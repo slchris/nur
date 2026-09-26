@@ -24,6 +24,7 @@ in
   snell-server = pkgs.callPackage ./pkgs/snell-server { };
   stalwart_0_16 = pkgs.callPackage ./pkgs/stalwart-0_16 { };
   stalwart-cli_1 = pkgs.callPackage ./pkgs/stalwart-cli-1 { };
+  sops_3_13 = pkgs.callPackage ./pkgs/sops-3_13 { };
 }
 // lib.optionalAttrs (nix-openclaw != null) {
   openclaw = pkgs.callPackage ./pkgs/openclaw { inherit nix-openclaw system; };
