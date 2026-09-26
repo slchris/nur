@@ -22,6 +22,8 @@ in
   kixparadigm = pkgs.callPackage ./pkgs/kixparadigm { };
   pi = pkgs.callPackage ./pkgs/pi { };
   snell-server = pkgs.callPackage ./pkgs/snell-server { };
+  stalwart_0_16 = pkgs.callPackage ./pkgs/stalwart-0_16 { };
+  stalwart-cli_1 = pkgs.callPackage ./pkgs/stalwart-cli-1 { };
 }
 // lib.optionalAttrs (nix-openclaw != null) {
   openclaw = pkgs.callPackage ./pkgs/openclaw { inherit nix-openclaw system; };
