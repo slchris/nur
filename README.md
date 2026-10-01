@@ -6,10 +6,10 @@
 - `snell-server`：Surge 的 snell 服务端，默认 5.0.1，也有 4.1.1。unfree，只支持 x86_64-linux。
 - `stalwart_0_16` / `stalwart-cli_1`：Stalwart 0.16.23 与配套 CLI 1.0.12 的官方 x86_64 Linux musl 静态发布包，固定 SHA-256；邮箱 NixOS 配置直接使用这些包，避免 nixpkgs 0.15 服务模块的旧配置格式。
 - `sops_3_13`：SOPS 3.13.3 官方 x86_64 Linux 静态发布包，固定 SHA-256；邮件 VM 用它在运行时解密密文。
-- `macbook81-firmware` / `macbook81-spi-resume`：Apple MacBook8,1（2015 款 12 英寸）的自有 Wi-Fi 固件目录（BCM4350 bin + 完整 NVRAM，取自 WiltonH/macbook12-wifi-driver）与 S3 唤醒后恢复 SPI 控制器的脚本。
+- `macbook81-firmware` / `macbook81-spi-resume` / `macbook81-hda`：Apple MacBook8,1（2015 款 12 英寸）的自有 Wi-Fi 固件目录（BCM4350 bin + 完整 NVRAM，取自 WiltonH/macbook12-wifi-driver）、S3 唤醒后恢复 SPI 控制器的脚本，以及内放（CS4208 TDM 功放）用的 patch 过的 HDA 模块包（源自 omnidecker/macbook8.1-speaker-driver）。
 - `nixosModules.snell`：运行 snell-server。
 - `nixosModules.derper`：Tailscale/headscale 的 DERP 中继。
-- `nixosModules.macbook81`：MacBook8,1 硬件支持。给内核打开 applespi 依赖的 SPI 控制器与 LEDS_CLASS（nixpkgs 默认没开，内置键盘/触控板靠它）；Wi-Fi 用 `alternative_fw_path` 指向自己的固件目录（完整 NVRAM 带校准，不覆盖 linux-firmware，内核升级不受影响）；另有唤醒修复、pci-stub 兜底与 s2idle 三个可选开关。
+- `nixosModules.macbook81`：MacBook8,1 硬件支持。给内核打开 applespi 依赖的 SPI 控制器与 LEDS_CLASS（nixpkgs 默认没开，内置键盘/触控板靠它）；Wi-Fi 通过 `hardware.firmware` 装入完整 NVRAM（带校准，不覆盖 linux-firmware，内核升级不受影响）；另有唤醒修复、pci-stub 兜底、s2idle 与内放音频四个可选开关。
 
 ## 使用
 
@@ -94,6 +94,9 @@ in
     # sleepToIdle.enable = true;   # 改用 s2idle（简单，但待机耗电）
     # applespi 反复报 -110（SPI transfer timed out）时打开：
     # pciStub.enable = true;       # 用 pci-stub 占住 LPSS DMA 控制器，让 SPI 走 PIO
+    # 内放（CS4208 TDM 功放）：耳机之外的唯一出声路径。要求 NVRAM 开机铃声未静音
+    # （固件只在放铃声时初始化功放），配套 PipeWire raw-PCM 配置与耳机插孔切换服务。
+    audio.enable = true;
   };
 }
 ```
@@ -101,6 +104,8 @@ in
 `enable` 会重编内核：nixpkgs 的 `common-config` 只开了 `KEYBOARD_APPLESPI=m`，但它依赖的 `SPI_PXA2XX` / `SPI_PXA2XX_PCI` / `LEDS_CLASS` 没有开，选项会被 kconfig 静默丢掉。内核 Kconfig 明确写着 MacBook8,1 需要 `spi_pxa2xx_platform` + `spi_pxa2xx_pci`。
 
 Wi-Fi 固件放在 `macbook81-firmware` 里，通过 `hardware.firmware` 并进 `/lib/firmware/brcm/`：两个 `.txt` 是完整 NVRAM（带 PA 校准，只覆盖 ccode/regrev，linux-firmware 里没有这两个文件），未压缩的 `.bin` 与 linux-firmware 的 `.bin.zst` 同名不同后缀、会被优先选中。内核升级只需要重建系统，固件不受影响。
+
+内放音频（`audio.enable`）源自 [omnidecker/macbook8.1-speaker-driver](https://github.com/omnidecker/macbook8.1-speaker-driver)：从内核源码树的 `sound/hda` 编译三个打补丁的模块（cs420x 重放 EFI 的功放系数镜像并驱动 TDM 扬声器 PCM、generic 跳过会锁死时钟的输入路径初始化、snd-hda-intel 不 reset 直接挂到 EFI 还在跑的链路），并用 `services.pipewire(.wireplumber).configPackages` 装上 EQ 滤波链与 raw-PCM 节点。前提是 NVRAM 开机铃声未静音（固件开机时初始化功放）。已知边界：Analog（耳机）与 TDM 转换器共享 HDA stream tag，任何应用往 Analog sink 开一次流都会让内放哑到重启 WirePlumber 为止；模块带的 jack-switch 只覆盖「拔出耳机」的恢复，默认 sink 请保持 `input.MacBook_Speaker`。
 
 配置改了内核，内核不在二进制缓存里，使用方要在自己的 Linux 构建机上构建。`spiResumeFix` 依赖 `0000:00:15.4` 的物理地址与 `/dev/mem`，内核升级后要复验。
 
