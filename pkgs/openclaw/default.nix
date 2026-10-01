@@ -27,7 +27,9 @@ let
   } runtimePluginLocks.acpx;
 
   wrapperSrc = ./npm-wrapper;
-  lock = builtins.fromJSON (builtins.readFile "${wrapperSrc}/package-lock.json");
+  # 不能写 "${wrapperSrc}/package-lock.json"：路径插值成带 context 的字符串后，
+  # restrict-eval（NUR 收录检查）下会先拷进 store 再读，报 "path is not valid"。
+  lock = builtins.fromJSON (builtins.readFile ./npm-wrapper/package-lock.json);
   version = lock.packages."node_modules/openclaw".version;
 
   buildNpmPackageForOpenClaw = noPkgs.buildNpmPackage.override {

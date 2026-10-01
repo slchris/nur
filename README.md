@@ -6,10 +6,10 @@
 - `snell-server`：Surge 的 snell 服务端，默认 5.0.1，也有 4.1.1。unfree，只支持 x86_64-linux。
 - `stalwart_0_16` / `stalwart-cli_1`：Stalwart 0.16.23 与配套 CLI 1.0.12 的官方 x86_64 Linux musl 静态发布包，固定 SHA-256；邮箱 NixOS 配置直接使用这些包，避免 nixpkgs 0.15 服务模块的旧配置格式。
 - `sops_3_13`：SOPS 3.13.3 官方 x86_64 Linux 静态发布包，固定 SHA-256；邮件 VM 用它在运行时解密密文。
-- `macbook81-nvram` / `macbook81-spi-resume`：Apple MacBook8,1（2015 款 12 英寸）的 Wi-Fi NVRAM 覆盖文件，以及 S3 唤醒后恢复 SPI 控制器的脚本。
+- `macbook81-firmware` / `macbook81-spi-resume`：Apple MacBook8,1（2015 款 12 英寸）的自有 Wi-Fi 固件目录（BCM4350 bin + 完整 NVRAM，取自 WiltonH/macbook12-wifi-driver）与 S3 唤醒后恢复 SPI 控制器的脚本。
 - `nixosModules.snell`：运行 snell-server。
 - `nixosModules.derper`：Tailscale/headscale 的 DERP 中继。
-- `nixosModules.macbook81`：MacBook8,1 硬件支持。给内核打开 applespi 依赖的 SPI 控制器与 LEDS_CLASS（nixpkgs 默认没开，内置键盘/触控板靠它），安装 BCM4350 的 NVRAM 文件，另有唤醒修复、pci-stub 兜底与 s2idle 三个可选开关。
+- `nixosModules.macbook81`：MacBook8,1 硬件支持。给内核打开 applespi 依赖的 SPI 控制器与 LEDS_CLASS（nixpkgs 默认没开，内置键盘/触控板靠它）；Wi-Fi 用 `alternative_fw_path` 指向自己的固件目录（完整 NVRAM 带校准，不覆盖 linux-firmware，内核升级不受影响）；另有唤醒修复、pci-stub 兜底与 s2idle 三个可选开关。
 
 ## 使用
 
@@ -86,7 +86,9 @@ in
 
   hardware.macbook81 = {
     enable = true;
-    ccode = "CN";                  # brcmfmac NVRAM 的国家码，决定 5GHz 信道
+    ccode = "US";                  # NVRAM 国家码，默认与 WiltonH 验证过的 US/rev53 一致
+    # regrev = "53";
+    # featureDisable = false;      # 默认给 brcmfmac 加 feature_disable=0x82000（Mac 机型已知修复）
     # deep S3 唤醒后内置键盘/触控板失效时，二选一打开：
     # spiResumeFix.enable = true;  # 唤醒时恢复 SPI 控制器寄存器并重绑（每次唤醒执行一次脚本）
     # sleepToIdle.enable = true;   # 改用 s2idle（简单，但待机耗电）
@@ -97,6 +99,8 @@ in
 ```
 
 `enable` 会重编内核：nixpkgs 的 `common-config` 只开了 `KEYBOARD_APPLESPI=m`，但它依赖的 `SPI_PXA2XX` / `SPI_PXA2XX_PCI` / `LEDS_CLASS` 没有开，选项会被 kconfig 静默丢掉。内核 Kconfig 明确写着 MacBook8,1 需要 `spi_pxa2xx_platform` + `spi_pxa2xx_pci`。
+
+Wi-Fi 不放进 `hardware.firmware`（会和 linux-firmware 里的同名文件冲突），而是装进独立的 `macbook81-firmware` 目录，用 `boot.extraModprobeConfig` 的 `alternative_fw_path` 指过去：bin 与 linux-firmware 同版本，NVRAM 用带完整校准数据的版本（只覆盖 ccode/regrev 两行）。内核升级只需要重建系统，固件不受影响。
 
 配置改了内核，内核不在二进制缓存里，使用方要在自己的 Linux 构建机上构建。`spiResumeFix` 依赖 `0000:00:15.4` 的物理地址与 `/dev/mem`，内核升级后要复验。
 
