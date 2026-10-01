@@ -145,6 +145,20 @@ in
           wireplumber.configPackages = [ hda ];
         };
 
+        # raw-PCM 模式下没有 ACP 帮我们初始化采集链路，codec 初始化后 Capture Switch
+        # 默认是关的，麦克风录音（OBS 等）全是静音。声卡出现后自动打开（对所有
+        # sound 卡事件幂等地执行，只作用于 CS4208 所在的 PCH 卡）。
+        systemd.services.mb81-mic-unmute = {
+          description = "Unmute CS4208 capture switch";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${pkgs.runtimeShell} -c '${pkgs.alsa-utils}/bin/amixer -c PCH sset Capture cap || true'";
+          };
+        };
+        services.udev.extraRules = ''
+          ACTION=="add|change", SUBSYSTEM=="sound", KERNEL=="card*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="mb81-mic-unmute.service"
+        '';
+
         # 耳机插孔插拔切换默认 sink；脚本监听 ALSA control，需要用户会话的 PipeWire。
         systemd.user.services.mb81-jack-switch = {
           description = "MacBook8,1 耳机/内放自动切换";
