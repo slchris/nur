@@ -21,6 +21,9 @@ in
   kixdns = pkgs.callPackage ./pkgs/kixdns { };
   kixparadigm = pkgs.callPackage ./pkgs/kixparadigm { };
   macbook81-firmware = pkgs.callPackage ./pkgs/macbook81/firmware.nix { };
+  macbook81-hda = pkgs.callPackage ./pkgs/macbook81/hda-driver.nix {
+    kernel = pkgs.linuxPackages.kernel;
+  };
   macbook81-spi-resume = pkgs.callPackage ./pkgs/macbook81/spi-resume.nix { };
   pi = pkgs.callPackage ./pkgs/pi { };
   snell-server = pkgs.callPackage ./pkgs/snell-server { };

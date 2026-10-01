@@ -64,6 +64,12 @@ in
     sleepToIdle.enable = lib.mkEnableOption ''
       用 s2idle 代替 deep S3，绕开 SPI 控制器的唤醒问题，但待机时更耗电
     '';
+
+    audio.enable = lib.mkEnableOption ''
+      CS4208 内放（TDM 功放）驱动：patched HDA 模块（intel 控制器不 reset 直接挂到
+      EFI 正在跑的链路 + cs420x 重放 EFI 初始化 + TDM 扬声器 PCM）、PipeWire raw-PCM
+      配置和耳机插孔自动切换。要求开机时固件初始化过 codec（NVRAM 开机铃声不能静音）
+    '';
   };
 
   config = lib.mkMerge [
@@ -115,5 +121,41 @@ in
         pkgs.callPackage ../pkgs/macbook81/spi-resume.nix { }
       );
     })
+
+    (lib.mkIf (cfg.enable && cfg.audio.enable) (
+      let
+        # 必须对 NixOS 实际使用的内核编译（boot.kernelPackages 带自定义 kernelPatches），
+        # 否则 module_layout 等符号 CRC 对不上，内核拒绝加载。
+        hda = pkgs.callPackage ../pkgs/macbook81/hda-driver.nix {
+          kernel = config.boot.kernelPackages.kernel;
+        };
+      in
+      {
+        boot.extraModulePackages = [ hda ];
+
+        # cs420x 必须先于 snd_hda_intel 加载才能在 generic 之前抢到 codec（softdep）；
+        # single_cmd=1 关掉 RIRB 批量模式，MacBook8,1 的控制器不兼容。
+        boot.extraModprobeConfig = ''
+          options snd_hda_intel single_cmd=1 power_save=0
+          softdep snd_hda_intel pre: snd_hda_codec_cs420x
+        '';
+
+        services.pipewire = {
+          configPackages = [ hda ];
+          wireplumber.configPackages = [ hda ];
+        };
+
+        # 耳机插孔插拔切换默认 sink；脚本监听 ALSA control，需要用户会话的 PipeWire。
+        systemd.user.services.mb81-jack-switch = {
+          description = "MacBook8,1 耳机/内放自动切换";
+          wantedBy = [ "default.target" ];
+          serviceConfig = {
+            ExecStart = "${hda}/bin/mb81-jack-switch";
+            Restart = "on-failure";
+            RestartSec = 3;
+          };
+        };
+      }
+    ))
   ];
 }
