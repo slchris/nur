@@ -69,8 +69,8 @@ in
   config = lib.mkMerge [
     (lib.mkIf cfg.enable (
       let
-        # 自己的固件目录（bin + 完整 NVRAM）。用 alternative_fw_path 指向它，不覆盖
-        # linux-firmware，内核更新不受影响。
+        # 自带固件包：完整 NVRAM + 钉住的 bin，通过 hardware.firmware 并进
+        # /lib/firmware/brcm/；文件名与 linux-firmware 不冲突，内核更新不影响。
         firmware = pkgs.callPackage ../pkgs/macbook81/firmware.nix {
           inherit (cfg) ccode regrev;
         };
@@ -78,10 +78,11 @@ in
       {
         hardware.enableRedistributableFirmware = true;
 
-        boot.extraModprobeConfig = ''
-          options brcmfmac alternative_fw_path=${firmware}${
-            lib.optionalString cfg.featureDisable " feature_disable=0x82000"
-          }
+        # 完整 NVRAM + 钉住的 bin 放进 /lib/firmware/brcm/（文件名与 linux-firmware 不冲突）。
+        hardware.firmware = [ firmware ];
+
+        boot.extraModprobeConfig = lib.optionalString cfg.featureDisable ''
+          options brcmfmac feature_disable=0x82000
         '';
 
         boot.kernelPatches = [

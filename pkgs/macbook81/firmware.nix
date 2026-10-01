@@ -1,12 +1,14 @@
-# MacBook 12 英寸（BCM4350 / BCM4350C2，14e4:43a3）的自有固件目录。
+# MacBook 12 英寸（BCM4350 / BCM4350C2，14e4:43a3）的自有固件与 NVRAM。
 #
-# 为什么不直接用 linux-firmware：关联失败的实测现象需要一份带完整校准数据的 NVRAM
-# （最小覆盖只有 ccode/regrev；驱动把平台 txt 当完整 NVRAM 用时，缺 PA 校准会导致
-# 能扫描但关联不上）。配套的 bin 与 linux-firmware 同版本（7.35.180.133），放在一起
-# 是为了用 brcmfmac 的 alternative_fw_path 指向本目录，不覆盖 /lib/firmware 里的文件，
-# 内核更新也不会动到它。
+# 为什么不用 linux-firmware 的默认 NVRAM：只有 ccode/regrev 的最小覆盖实测会出现
+# “能扫描、关联不上”；这里放 Apple BootCamp 驱动逆向出来的完整 NVRAM（含 PA 校准），
+# 只覆盖 ccode/regrev 两行，其余原样保留。
 #
-# 数据来源：WiltonH/macbook12-wifi-driver（MIT），完整 NVRAM 取自 Apple BootCamp 驱动。
+# 文件放在 lib/firmware/brcm/ 下：
+#   - 两个 .txt 在 linux-firmware 里不存在，不会冲突；
+#   - 未压缩的 .bin 与 linux-firmware 的 .bin.zst 同名不同后缀，固件加载器先找 .bin，
+#     因此会优先用我们这份，等于把固件版本也钉住。
+# 数据来源：WiltonH/macbook12-wifi-driver（MIT）。
 {
   runCommand,
   lib,
@@ -19,15 +21,13 @@ runCommand "macbook81-brcm-firmware" {
     license = lib.licenses.mit;
   };
 } ''
-  mkdir -p $out
+  mkdir -p $out/lib/firmware/brcm
 
-  # 驱动按芯片 rev 选 bin：MacBook8,1 实测加载的是 brcmfmac4350c2-pcie.bin。
-  # 注意要显式给目标文件名：cp 一个 store 文件到目录会保留带哈希的源文件名。
-  install -m 0444 ${./firmware/brcmfmac4350c2-pcie.bin} $out/brcmfmac4350c2-pcie.bin
-  install -m 0444 ${./firmware/brcmfmac4350-pcie.bin} $out/brcmfmac4350-pcie.bin
+  # 显式给目标文件名：cp 一个 store 文件到目录会保留带哈希的源文件名。
+  install -m 0444 ${./firmware/brcmfmac4350c2-pcie.bin} $out/lib/firmware/brcm/brcmfmac4350c2-pcie.bin
+  install -m 0444 ${./firmware/brcmfmac4350-pcie.bin} $out/lib/firmware/brcm/brcmfmac4350-pcie.bin
 
-  # 完整 NVRAM 覆盖：只改管制域两行，其余（boardtype、PA 校准等）保持原样。
   sed -e "s/^ccode=.*/ccode=${ccode}/" -e "s/^regrev=.*/regrev=${regrev}/" \
-    ${./firmware/brcmfmac4350c2-pcie.full.txt} > $out/brcmfmac4350c2-pcie.txt
-  cp $out/brcmfmac4350c2-pcie.txt $out/brcmfmac4350-pcie.txt
+    ${./firmware/brcmfmac4350c2-pcie.full.txt} > $out/lib/firmware/brcm/brcmfmac4350c2-pcie.txt
+  cp $out/lib/firmware/brcm/brcmfmac4350c2-pcie.txt $out/lib/firmware/brcm/brcmfmac4350-pcie.txt
 ''

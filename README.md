@@ -100,7 +100,7 @@ in
 
 `enable` 会重编内核：nixpkgs 的 `common-config` 只开了 `KEYBOARD_APPLESPI=m`，但它依赖的 `SPI_PXA2XX` / `SPI_PXA2XX_PCI` / `LEDS_CLASS` 没有开，选项会被 kconfig 静默丢掉。内核 Kconfig 明确写着 MacBook8,1 需要 `spi_pxa2xx_platform` + `spi_pxa2xx_pci`。
 
-Wi-Fi 不放进 `hardware.firmware`（会和 linux-firmware 里的同名文件冲突），而是装进独立的 `macbook81-firmware` 目录，用 `boot.extraModprobeConfig` 的 `alternative_fw_path` 指过去：bin 与 linux-firmware 同版本，NVRAM 用带完整校准数据的版本（只覆盖 ccode/regrev 两行）。内核升级只需要重建系统，固件不受影响。
+Wi-Fi 固件放在 `macbook81-firmware` 里，通过 `hardware.firmware` 并进 `/lib/firmware/brcm/`：两个 `.txt` 是完整 NVRAM（带 PA 校准，只覆盖 ccode/regrev，linux-firmware 里没有这两个文件），未压缩的 `.bin` 与 linux-firmware 的 `.bin.zst` 同名不同后缀、会被优先选中。内核升级只需要重建系统，固件不受影响。
 
 配置改了内核，内核不在二进制缓存里，使用方要在自己的 Linux 构建机上构建。`spiResumeFix` 依赖 `0000:00:15.4` 的物理地址与 `/dev/mem`，内核升级后要复验。
 
