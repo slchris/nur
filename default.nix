@@ -20,6 +20,8 @@ in
   deepseek-harness = pkgs.callPackage ./pkgs/deepseek-harness { };
   kixdns = pkgs.callPackage ./pkgs/kixdns { };
   kixparadigm = pkgs.callPackage ./pkgs/kixparadigm { };
+  macbook81-nvram = pkgs.callPackage ./pkgs/macbook81/nvram.nix { };
+  macbook81-spi-resume = pkgs.callPackage ./pkgs/macbook81/spi-resume.nix { };
   pi = pkgs.callPackage ./pkgs/pi { };
   snell-server = pkgs.callPackage ./pkgs/snell-server { };
   stalwart_0_16 = pkgs.callPackage ./pkgs/stalwart-0_16 { };
