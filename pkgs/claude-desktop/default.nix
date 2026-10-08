@@ -39,19 +39,20 @@
   nspr,
   nss,
   pango,
+  pipewire,
   systemd,
   xdg-utils,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "claude-desktop";
-  version = "2.9939.4";
+  version = "2.26454.2";
 
   # Anthropic 官方 apt 仓库里的 deb，版本和哈希取自
   # https://downloads.claude.ai/claude-desktop/apt/stable/dists/stable/main/binary-amd64/Packages
   src = fetchurl {
     url = "https://downloads.claude.ai/claude-desktop/apt/stable/pool/main/c/claude-desktop/claude-desktop_${finalAttrs.version}_amd64.deb";
-    hash = "sha256-PP3bI78pEeBeJ7TtOFa455XflGQ7LDW1nesxfPmVvKA=";
+    hash = "sha256-slGgIkqGNYdPM1mN+O2JUrQn+EgV7llYDMAi1r2yQw8=";
   };
 
   nativeBuildInputs = [
@@ -83,6 +84,8 @@ stdenv.mkDerivation (finalAttrs: {
     nspr
     nss
     pango
+    # 新版 @ant/claude-native 绑定链接 libpipewire-0.3.so.0。
+    pipewire
     stdenv.cc.cc.lib
     libx11
     libxcb
