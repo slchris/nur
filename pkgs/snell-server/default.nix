@@ -10,6 +10,7 @@
 let
   # 官方 zip 的哈希，由 scripts/update.py 维护。
   hashes = {
+    "6.0.0" = "sha256-ipxEY8qHz6Xqo3xq8NN6uT6idaoSORmFuyo3XKOr1/I=";
     "5.0.1" = "sha256-m+ocK541tzsxY0hWwE0Yw5MHK55dzeajJ4HYuPkIxTk=";
     "4.1.1" = "sha256-zCJxt5x1BoiLNOZR6HQbOqf8fV9gqmXvi7CW8zE6GTs=";
   };
